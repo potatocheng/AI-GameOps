@@ -1,5 +1,5 @@
-from langchain.memory import ConversationBufferMemory
-from langchain.memory.chat_message_histories import SQLChatMessageHistory
+from langchain_classic.memory import ConversationBufferMemory
+from langchain_community.chat_message_histories import SQLChatMessageHistory
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os

@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain import hub
+from langchain_classic.agents import AgentExecutor, create_react_agent
+from langchain_classic import hub
 from .tools import get_tools
 from .memory import create_memory
 from .knowledge import get_qa_chain, query_knowledge, init_knowledge_base

@@ -1,18 +1,14 @@
 import os
 from dotenv import load_dotenv
-from langchain_community.document_loaders import TextLoader, DirectoryLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_chroma import Chroma
-from langchain.chains import RetrievalQA
-from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
+from langchain_classic.chains import RetrievalQA
+from langchain_core.prompts import PromptTemplate
 import chromadb
+from agent.config import RAGConfig
+from agent.splitter import split_all_documents
 
 load_dotenv()
-
-CHROMADB_PATH = os.getenv("CHROMADB_PATH", "./chroma_db")
-KNOWLEDGE_BASE_PATH = "./knowledge_base"
 
 chroma_client = None
 vectordb = None
@@ -20,91 +16,58 @@ vectordb = None
 def init_knowledge_base():
     """
     初始化知识库向量数据库。
-    加载文档、分割、嵌入并存储到ChromaDB。
+    使用新的混合策略分割文档、嵌入并存储到ChromaDB。
     """
     global chroma_client, vectordb
     
-    # 创建ChromaDB客户端
-    chroma_client = chromadb.PersistentClient(path=CHROMADB_PATH)
+    chroma_client = chromadb.PersistentClient(path=RAGConfig.CHROMADB_PATH)
     
-    # 检查是否已有集合
     try:
-        collection = chroma_client.get_collection("game_knowledge")
+        collection = chroma_client.get_collection(RAGConfig.COLLECTION_NAME)
         if collection.count() > 0:
             print(f"知识库已存在，包含 {collection.count()} 条文档")
             vectordb = Chroma(
                 client=chroma_client,
-                collection_name="game_knowledge",
+                collection_name=RAGConfig.COLLECTION_NAME,
                 embedding_function=OpenAIEmbeddings()
             )
             return True
     except:
         pass
     
-    # 创建新的知识库
     print("正在初始化知识库...")
     
-    # 确保知识库目录存在
-    os.makedirs(KNOWLEDGE_BASE_PATH, exist_ok=True)
+    os.makedirs(RAGConfig.KNOWLEDGE_BASE_PATH, exist_ok=True)
     
-    # 创建默认知识库文档
     create_default_knowledge_base()
     
-    # 加载文档
-    if not os.path.exists(KNOWLEDGE_BASE_PATH):
-        os.makedirs(KNOWLEDGE_BASE_PATH, exist_ok=True)
+    all_docs = split_all_documents(RAGConfig.KNOWLEDGE_BASE_PATH)
     
-    # 加载所有txt和md文件
-    loader = DirectoryLoader(
-        KNOWLEDGE_BASE_PATH,
-        glob="**/*.md",
-        loader_cls=TextLoader
-    )
-    
-    try:
-        documents = loader.load()
-    except Exception as e:
-        print(f"加载文档时出错: {e}")
-        documents = []
-    
-    if not documents:
-        # 创建默认文档
-        create_default_knowledge_base()
-        loader = DirectoryLoader(
-            KNOWLEDGE_BASE_PATH,
-            glob="**/*.md",
-            loader_cls=TextLoader
-        )
-        documents = loader.load()
-    
-    # 分割文档
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        length_function=len
-    )
-    
-    texts = text_splitter.split_documents(documents)
-    
-    if not texts:
+    if not all_docs:
         print("警告: 没有文档可供处理")
         return False
     
-    # 创建向量存储
     embeddings = OpenAIEmbeddings()
     
     vectordb = Chroma.from_documents(
-        documents=texts,
+        documents=all_docs,
         embedding=embeddings,
         client=chroma_client,
-        collection_name="game_knowledge"
+        collection_name=RAGConfig.COLLECTION_NAME
     )
     
-    print(f"知识库初始化完成，包含 {len(texts)} 个文档片段")
+    print(f"知识库初始化完成，包含 {len(all_docs)} 个文档片段")
     return True
 
 def create_default_knowledge_base():
-    """创建默认的游戏知识库文档"""
+    """创建默认的游戏知识库文档（使用子目录结构）"""
+    faq_dir = os.path.join(RAGConfig.KNOWLEDGE_BASE_PATH, "faq")
+    rules_dir = os.path.join(RAGConfig.KNOWLEDGE_BASE_PATH, "rules")
+    updates_dir = os.path.join(RAGConfig.KNOWLEDGE_BASE_PATH, "updates")
+    
+    os.makedirs(faq_dir, exist_ok=True)
+    os.makedirs(rules_dir, exist_ok=True)
+    os.makedirs(updates_dir, exist_ok=True)
     
     faq_content = """# 游戏常见问题解答
 
@@ -171,28 +134,30 @@ A: 您可以通过以下方式反馈：
 - 提升游戏性能
 """
     
-    # 写入文件
-    with open(os.path.join(KNOWLEDGE_BASE_PATH, "faq.md"), "w", encoding="utf-8") as f:
+    with open(os.path.join(faq_dir, "basic.md"), "w", encoding="utf-8") as f:
         f.write(faq_content)
     
-    with open(os.path.join(KNOWLEDGE_BASE_PATH, "rules.md"), "w", encoding="utf-8") as f:
+    with open(os.path.join(rules_dir, "game_rules.md"), "w", encoding="utf-8") as f:
         f.write(rules_content)
     
-    with open(os.path.join(KNOWLEDGE_BASE_PATH, "updates.md"), "w", encoding="utf-8") as f:
+    with open(os.path.join(updates_dir, "v2.5.0.md"), "w", encoding="utf-8") as f:
         f.write(update_content)
 
-def query_knowledge(query: str, k: int = 3) -> list:
+def query_knowledge(query: str, k: int = None) -> list:
     """
     从知识库中检索相关内容。
     
     Args:
         query: 查询文本
         k: 返回的相关文档数量
-    
+        
     Returns:
         相关文档列表
     """
     global vectordb
+    
+    if k is None:
+        k = RAGConfig.RETRIEVAL_K
     
     if vectordb is None:
         init_knowledge_base()
@@ -201,7 +166,15 @@ def query_knowledge(query: str, k: int = 3) -> list:
         return []
     
     try:
-        docs = vectordb.similarity_search(query, k=k)
+        if RAGConfig.USE_MMR:
+            retriever = vectordb.as_retriever(
+                search_type="mmr",
+                search_kwargs={"k": k, "fetch_k": 20, "lambda_mult": RAGConfig.MMR_DIVERSITY}
+            )
+            docs = retriever.get_relevant_documents(query)
+        else:
+            docs = vectordb.similarity_search(query, k=k)
+        
         return [doc.page_content for doc in docs]
     except Exception as e:
         print(f"知识库检索失败: {e}")
@@ -222,7 +195,6 @@ def get_qa_chain():
     if vectordb is None:
         return None
     
-    # 定义提示模板
     prompt_template = """你是一个友好的游戏运营助手。根据以下知识库内容回答玩家的问题。
 
 知识库内容:
@@ -244,10 +216,15 @@ def get_qa_chain():
         openai_api_key=os.getenv("OPENAI_API_KEY")
     )
     
+    retriever = vectordb.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": RAGConfig.RETRIEVAL_K, "fetch_k": 20}
+    )
+    
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
-        retriever=vectordb.as_retriever(search_kwargs={"k": 3}),
+        retriever=retriever,
         chain_type_kwargs={"prompt": PROMPT}
     )
     
@@ -272,26 +249,16 @@ def add_to_knowledge_base(content: str, metadata: dict = None):
     try:
         from langchain.schema import Document
         
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50
-        )
-        
-        texts = text_splitter.split_text(content)
-        
-        documents = [
-            Document(page_content=text, metadata=metadata or {}) 
-            for text in texts
-        ]
+        docs = [Document(page_content=content, metadata=metadata or {})]
         
         if vectordb is None:
             vectordb = Chroma(
                 client=chroma_client,
-                collection_name="game_knowledge",
+                collection_name=RAGConfig.COLLECTION_NAME,
                 embedding_function=OpenAIEmbeddings()
             )
         
-        vectordb.add_documents(documents)
+        vectordb.add_documents(docs)
         
         return True
     except Exception as e:

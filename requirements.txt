@@ -5,5 +5,9 @@ sqlalchemy
 pg8000
 langchain
 langchain-openai
+langchain-experimental
 chromadb
 vaderSentiment
+watchdog
+rank_bm25
+python-Levenshtein
