@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-dotenv
+sqlalchemy
+pg8000
+langchain
+langchain-openai
+chromadb
+vaderSentiment
