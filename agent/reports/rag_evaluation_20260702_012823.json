@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-07-02 01:28:23",
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 3,
+    "failed_tests": 3,
+    "overall_pass": false
+  },
+  "details": {
+    "splitter": {
+      "total_files": 0,
+      "total_chunks": 0,
+      "type_accuracy": 0,
+      "size_distribution": {
+        "too_small": 0,
+        "normal": 0,
+        "too_large": 0
+      },
+      "avg_chunk_size": 0,
+      "error": "get_all_markdown_files() missing 1 required positional argument: 'root_dir'",
+      "passed": false
+    },
+    "retrieval": {
+      "total_queries": 0,
+      "avg_response_time": 0,
+      "min_response_time": Infinity,
+      "max_response_time": 0,
+      "accuracy": 0,
+      "queries": [],
+      "error": "Error code: 401 - {'error': {'message': 'Incorrect API key provided: your-ope************here. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "passed": false
+    },
+    "hybrid": {
+      "bm25_weight": 0.3,
+      "vector_weight": 0.7,
+      "tested": true,
+      "queries": [],
+      "error": "Error code: 401 - {'error': {'message': 'Incorrect API key provided: your-ope************here. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "passed": false
+    },
+    "cache": {
+      "cache_size": 1000,
+      "cache_ttl": 300,
+      "hit_rate": 100.0,
+      "avg_cache_response_time_ms": 0.006566047668457031,
+      "speedup_ratio": 0,
+      "passed": true
+    },
+    "incremental": {
+      "watchdog_available": true,
+      "backup_enabled": true,
+      "passed": true
+    },
+    "monitor": {
+      "monitor_available": true,
+      "stats": {
+        "time_window_minutes": 60,
+        "total_requests": 10,
+        "qps": 0.0028,
+        "avg_response_time": 0.095,
+        "min_response_time": 0.05,
+        "max_response_time": 0.14,
+        "cache_hit_count": 5,
+        "cache_miss_count": 5,
+        "cache_hit_rate": 50.0,
+        "total_results": 30,
+        "avg_result_count": 3.0
+      },
+      "passed": true
+    }
+  }
+}

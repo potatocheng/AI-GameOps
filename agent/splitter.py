@@ -2,10 +2,15 @@ import os
 from typing import List, Dict
 from datetime import datetime
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
-from langchain_experimental.text_splitter import SemanticChunker
-from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from agent.config import RAGConfig
+
+
+def _has_valid_api_key():
+    """检查是否有有效的API Key"""
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    return bool(api_key) and "your" not in api_key.lower() and "xxx" not in api_key.lower() and len(api_key) > 20
+
 
 def get_all_markdown_files(root_dir: str) -> List[Dict]:
     """
@@ -113,8 +118,8 @@ def split_document(file_info: Dict) -> List[Document]:
     
     步骤:
     1. 使用MarkdownHeaderTextSplitter按标题结构分割
-    2. 对过长的片段使用RecursiveCharacterTextSplitter预分割
-    3. 使用SemanticChunker进行语义感知分割
+    2. 对过长的片段使用RecursiveCharacterTextSplitter分割
+    3. 如果有API Key，使用SemanticChunker进行语义感知分割
     
     Args:
         file_info: 文件信息字典
@@ -145,18 +150,29 @@ def split_document(file_info: Dict) -> List[Document]:
     
     md_docs = markdown_splitter.split_text(content)
     
-    embeddings = OpenAIEmbeddings()
-    semantic_splitter = SemanticChunker(
-        embeddings,
-        buffer_size=2,
-        breakpoint_threshold_type="percentile",
-        breakpoint_threshold_amount=RAGConfig.SEMANTIC_THRESHOLD,
-        min_chunk_size=RAGConfig.MIN_CHUNK_SIZE,
-        add_start_index=True
-    )
+    use_semantic = _has_valid_api_key()
     
-    pre_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_params["chunk_size"] * 2,
+    semantic_splitter = None
+    if use_semantic:
+        try:
+            from langchain_experimental.text_splitter import SemanticChunker
+            from langchain_openai import OpenAIEmbeddings
+            
+            embeddings = OpenAIEmbeddings()
+            semantic_splitter = SemanticChunker(
+                embeddings,
+                buffer_size=2,
+                breakpoint_threshold_type="percentile",
+                breakpoint_threshold_amount=RAGConfig.SEMANTIC_THRESHOLD,
+                min_chunk_size=RAGConfig.MIN_CHUNK_SIZE,
+                add_start_index=True
+            )
+        except Exception as e:
+            print(f"语义分割器初始化失败，回退到字符分割: {e}")
+            use_semantic = False
+    
+    final_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_params["chunk_size"],
         chunk_overlap=chunk_params["chunk_overlap"],
         length_function=len
     )
@@ -168,34 +184,31 @@ def split_document(file_info: Dict) -> List[Document]:
         content_length = len(md_doc.page_content)
         
         if content_length > chunk_params["chunk_size"]:
-            if content_length > RAGConfig.MAX_CHUNK_SIZE * 2:
-                pre_chunks = pre_splitter.split_text(md_doc.page_content)
+            if use_semantic and semantic_splitter is not None:
+                try:
+                    chunks = semantic_splitter.split_text(md_doc.page_content)
+                except Exception:
+                    chunks = final_splitter.split_text(md_doc.page_content)
             else:
-                pre_chunks = [md_doc.page_content]
+                chunks = final_splitter.split_text(md_doc.page_content)
             
-            for pre_chunk in pre_chunks:
-                if len(pre_chunk) < RAGConfig.MIN_CHUNK_SIZE:
-                    semantic_chunks = [pre_chunk]
-                else:
-                    semantic_chunks = semantic_splitter.split_text(pre_chunk)
+            for chunk in chunks:
+                title = _extract_title(md_doc.metadata, filename)
+                header_level = _extract_header_level(md_doc.metadata)
                 
-                for chunk in semantic_chunks:
-                    title = _extract_title(md_doc.metadata, filename)
-                    header_level = _extract_header_level(md_doc.metadata)
-                    
-                    metadata = {
-                        "source": rel_path,
-                        "filename": filename,
-                        "doc_type": doc_type,
-                        "title": title,
-                        "header_level": header_level,
-                        "chunk_index": chunk_index,
-                        "last_modified": last_modified.isoformat(),
-                        "directory": dirname,
-                        "content_length": len(chunk)
-                    }
-                    final_docs.append(Document(page_content=chunk, metadata=metadata))
-                    chunk_index += 1
+                metadata = {
+                    "source": rel_path,
+                    "filename": filename,
+                    "doc_type": doc_type,
+                    "title": title,
+                    "header_level": header_level,
+                    "chunk_index": chunk_index,
+                    "last_modified": last_modified.isoformat(),
+                    "directory": dirname,
+                    "content_length": len(chunk)
+                }
+                final_docs.append(Document(page_content=chunk, metadata=metadata))
+                chunk_index += 1
         else:
             title = _extract_title(md_doc.metadata, filename)
             header_level = _extract_header_level(md_doc.metadata)

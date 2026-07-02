@@ -25,7 +25,7 @@
   - `human-judgment` TR-1.3: 抽查10个文档片段，确保语义完整性
 - **Notes**: 需要安装langchain-experimental包；支持递归遍历子目录；支持文件名前缀和子目录名两种识别方式
 
-## [ ] Task 2: 检索策略优化（混合检索+MMR）
+## [x] Task 2: 检索策略优化（混合检索+MMR）
 - **Priority**: high
 - **Depends On**: Task 1
 - **Description**: 
@@ -38,7 +38,7 @@
   - `programmatic` TR-2.2: MMR检索结果多样性评分 >= 0.7
 - **Notes**: 需要安装langchain-community和rank_bm25包
 
-## [ ] Task 3: 向量数据库优化
+## [x] Task 3: 向量数据库优化
 - **Priority**: high
 - **Depends On**: Task 1
 - **Description**: 
@@ -51,7 +51,7 @@
   - `programmatic` TR-3.2: 并发10次检索平均响应时间 < 1.5秒
 - **Notes**: ChromaDB的HNSW索引参数对性能影响较大
 
-## [ ] Task 4: 提示模板优化
+## [x] Task 4: 提示模板优化
 - **Priority**: medium
 - **Depends On**: Task 2
 - **Description**: 
@@ -64,7 +64,7 @@
   - `human-judgment` TR-4.2: 回答格式清晰，来源可追溯
 - **Notes**: 提示模板设计需要结合游戏运营场景
 
-## [ ] Task 5: 增量更新机制与文件Watcher
+## [x] Task 5: 增量更新机制与文件Watcher
 - **Priority**: high
 - **Depends On**: Task 1
 - **Description**: 
@@ -79,7 +79,7 @@
   - `programmatic` TR-5.3: 增量更新后，向量数据库包含最新文档内容
 - **Notes**: 文档类型通过文件名前缀识别；不需要保留文档历史版本
 
-## [ ] Task 6: 缓存机制实现
+## [x] Task 6: 缓存机制实现
 - **Priority**: medium
 - **Depends On**: Task 2
 - **Description**: 
@@ -92,7 +92,7 @@
   - `programmatic` TR-6.2: 缓存响应时间 < 100ms
 - **Notes**: 使用functools.lru_cache或Redis
 
-## [ ] Task 7: 评估指标体系构建
+## [x] Task 7: 评估指标体系构建
 - **Priority**: medium
 - **Depends On**: Task 2, Task 3
 - **Description**: 
@@ -106,7 +106,7 @@
   - `programmatic` TR-7.2: 能够计算并对比优化前后的各项指标
 - **Notes**: 需要创建测试数据集
 
-## [ ] Task 8: RAG监控与可观测性
+## [x] Task 8: RAG监控与可观测性
 - **Priority**: low
 - **Depends On**: Task 2, Task 5
 - **Description**: 
